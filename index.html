@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Pour My Moon 🌙</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: #000;
+        font-family: "Cormorant Garamond", serif;
+        -webkit-touch-callout: none;
+      }
+      #mainBg {
+        position: fixed;
+        inset: 0;
+        background: url("https://s1.best-wallpaper.net/wallpaper/m/1804/Pink-love-hearts-shine-romantic_m.webp")
+          no-repeat center/cover;
+        z-index: 0;
+        display: none;
+      }
+      #webgl {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        z-index: 1;
+        cursor: grab;
+        /* Empêche Android de capter les gestes (scroll/zoom/long-press) à la place
+         de notre code : sans ça, les taps sur la lune/le cœur sont avalés par le
+         navigateur avant d'arriver jusqu'à nous. */
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      #webgl.active {
+        display: block;
+      }
+      #webgl.clickable {
+        cursor: pointer;
+      }
+      .title-overlay {
+        position: fixed;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        text-align: center;
+        pointer-events: none;
+        color: #fff5f0;
+        display: none;
+      }
+      .title-overlay h1 {
+        font-family: "Great Vibes", cursive;
+        font-size: clamp(54px, 13vw, 130px);
+        font-weight: 400;
+        line-height: 0.9;
+        margin: 0;
+      }
+      .title-overlay .big-name {
+        font-size: 1.3em;
+        text-shadow:
+          0 0 30px #ff99cc,
+          0 0 60px #ff66aa;
+      }
+      .typewriter-box {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 700px;
+        z-index: 20;
+        background: rgba(10, 5, 30, 0.75);
+        backdrop-filter: blur(18px);
+        border-radius: 32px;
+        padding: 28px 26px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+        font-size: clamp(17px, 3vw, 21px);
+        color: #fff8f0;
+        line-height: 1.7;
+        display: none;
+        white-space: pre-wrap;
+      }
+      .typewriter-box.visible {
+        display: block;
+      }
+      .typewriter-box .cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1.2em;
+        background: #fff;
+        margin-left: 3px;
+        vertical-align: text-bottom;
+        animation: blink 0.8s infinite;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+      #intro-video {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.8s ease;
+        touch-action: none;
+      }
+      #intro-video video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      #mainBg,
+      #webgl.active,
+      .title-overlay {
+        animation: fadeIn 0.8s ease forwards;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="intro-video">
+      <video
+        id="introVid"
+        autoplay
+        muted
+        playsinline
+        webkit-playsinline
+        preload="auto"
+      >
+        <source src="intro.mp4" type="video/mp4" />
+      </video>
+    </div>
+    <div id="mainBg"></div>
+    <canvas id="webgl"></canvas>
+    <div class="title-overlay" id="titleOverlay">
+      <h1>Joyeux anniversaire<br /><span class="big-name">My Moon</span></h1>
+    </div>
+    <div class="typewriter-box" id="typewriter">
+      <span id="typewriter-text"></span><span class="cursor" id="cursor"></span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+    <script>
+      if (typeof THREE === "undefined") {
+        document.body.innerHTML =
+          '<h1 style="color:white;text-align:center;margin-top:40vh;">Erreur : Three.js non chargé.</h1>';
+        throw new Error("Three.js manquant");
+      }
+
+      const FRAME_COUNT = 7;
+      const MY_PHOTOS = [
+        "https://i.ibb.co/bjcBwQBn/Whats-App-Image-2026-04-15-at-11-07-53.jpg",
+        "https://i.ibb.co/s87tdFT/Whats-App-Image-2026-04-15-at-11-07-53-2.jpg",
+        "https://i.ibb.co/RkpNJQ1h/Whats-App-Image-2026-04-15-at-11-07-52.jpg",
+        "https://i.ibb.co/JV4PG6p/Whats-App-Image-2026-04-15-at-11-07-52-2.jpg",
+        "https://i.ibb.co/b5Gph4jc/Whats-App-Image-2026-04-15-at-11-07-52-1.jpg",
+        "https://i.ibb.co/S4hKqbdf/Whats-App-Image-2026-04-15-at-11-07-50-2.jpg",
+        "https://i.ibb.co/DPDkdRxh/Whats-App-Image-2026-04-15-at-11-07-50.jpg",
+      ];
+      const LOVE_LETTER =
+        `J’espère que tu vas bien, ma chère amie, mon étoile, ma Moon 🌙.\n` +
+        `Aujourd’hui, je prends un moment pour te dire tout ce que je garde parfois en silence.` +
+        ` Tu es la plus belle chose que la vie m’ait offerte — et quand je dis belle, je ne parle pas seulement de tes yeux ou de ton sourire qui illumine une pièce.` +
+        ` Je parle de ton âme.` +
+        ` De cette façon que tu as de comprendre les gens avant même qu’ils ne parlent, de cette intelligence rare qui brille dans tes mots, dans tes idées, dans ta manière de voir le monde.` +
+        ` Tu es drôle, dingue parfois, et tellement attachante que chaque instant avec toi devient un souvenir précieux.\n\n` +
+        `Je repense souvent à nos éclats de rire, à nos discussions improbables qui s’étiraient jusqu’au bout de la nuit.` +
+        ` À tout ce qu’on a construit ensemble, sans même le vouloir, juste parce que c’était nous.` +
+        ` Tu m’as vu comme personne ne m’avait vu, et ça, ça ne s’oublie pas.\n\n` +
+        `Je sais que ces derniers temps, la vie nous a un peu éloignés.` +
+        ` Les jours passent plus vite, les messages se font plus courts, les silences un peu plus longs.` +
+        ` Je ne t’en veux pas, et je veux que tu saches que je ne doute pas une seconde de ce qu’on est.` +
+        ` Les vraies amitiés ne se mesurent pas à la fréquence des conversations, mais à la force de ce qu’on ressent quand on se retrouve.` +
+        ` Et moi, je reste là, inébranlable, fier de toi, convaincu que tu vas accomplir tout ce que tu désires.\n\n` +
+        `Ne doute jamais de toi, ma Moon.` +
+        ` Tu as en toi tout ce qu’il faut pour réussir : la force, le talent, le cœur.` +
+        ` Et même si la route est longue, même si parfois tu te sens seule, n’oublie jamais qu’il y a quelqu’un ici-bas qui croit en toi plus fort que tout.\n\n` +
+        `Prends soin de toi.` +
+        ` Et souviens-toi que, peu importe où la vie nous mène, une part de mon amitié t’appartiendra toujours.\n\n` +
+        `Avec toute ma tendresse,\n` +
+        `                                  my Moon 🌙`;
+
+      const introVid = document.getElementById("introVid");
+      const introDiv = document.getElementById("intro-video");
+
+      let experienceLaunched = false;
+      function startExperience() {
+        if (experienceLaunched) return;
+        experienceLaunched = true;
+        // Fondu de sortie de la vidéo
+        introDiv.style.opacity = "0";
+        setTimeout(() => {
+          introDiv.style.display = "none";
+        }, 800);
+        // Création de la scène et premier rendu
+        initScene();
+        animate();
+        requestAnimationFrame(() => {
+          document.getElementById("mainBg").style.display = "block";
+          document.getElementById("webgl").classList.add("active");
+          document.getElementById("titleOverlay").style.display = "block";
+        });
+      }
+
+      // Tente de lire la vidéo dès que possible
+      introVid
+        .play()
+        .then(() => {
+          // La vidéo se lance, on attend sa fin
+          introVid.addEventListener("ended", startExperience);
+        })
+        .catch(() => {
+          // La lecture automatique est refusée, on lance la scène après 500 ms
+          setTimeout(startExperience, 500);
+        });
+
+      // Si la vidéo est déjà en train de jouer (rare), on se raccroche à l’événement ended
+      introVid.addEventListener("ended", startExperience);
+
+      // Clic pour zapper
+      introVid.addEventListener("click", () => {
+        introVid.pause();
+        startExperience();
+      });
+
+      let scene,
+        camera,
+        renderer,
+        world,
+        frameGroup,
+        stars,
+        twinkleStars,
+        twinkleMat;
+      let moonMesh,
+        bigHeart,
+        heartSprites = [],
+        frames = [];
+      let moonMat;
+      let bigHeartAppeared = false,
+        heartClicked = false,
+        typingStarted = false,
+        typingFinished = false,
+        heartRainActive = false;
+      let pointer = {
+        active: false,
+        lastX: 0,
+        lastY: 0,
+        velX: 0,
+        velY: 0,
+        targetRotX: 0.05,
+        targetRotY: 0,
+        pinchDist: 0,
+      };
+      let camDist = 9.5,
+        targetCamDist = 9.5;
+      let experienceStarted = false;
+      const clock = new THREE.Clock();
+
+      // ─── Chargement d’une photo AVEC CORS pour éviter le canvas taché ───
+      function loadFrameTexture(idx) {
+        const photoW = 1.78,
+          photoH = 2.63;
+        const cornerRadius = 40; // rayon fixe (coins arrondis visuels)
+        if (MY_PHOTOS && idx < MY_PHOTOS.length) {
+          return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              const canvasWidth = 1024;
+              const canvasHeight = Math.round(canvasWidth * (photoH / photoW));
+              const canvas = document.createElement("canvas");
+              canvas.width = canvasWidth;
+              canvas.height = canvasHeight;
+              const ctx = canvas.getContext("2d");
+
+              const imgRatio = img.width / img.height;
+              const canvasRatio = photoW / photoH;
+              let drawWidth, drawHeight, offsetX, offsetY;
+              if (imgRatio > canvasRatio) {
+                drawHeight = img.height;
+                drawWidth = img.height * canvasRatio;
+                offsetX = (img.width - drawWidth) / 2;
+                offsetY = 0;
+              } else {
+                drawWidth = img.width;
+                drawHeight = img.width / canvasRatio;
+                offsetX = 0;
+                offsetY = (img.height - drawHeight) / 2;
+              }
+
+              // Masque aux coins arrondis
+              ctx.beginPath();
+              const r = cornerRadius;
+              ctx.moveTo(r, 0);
+              ctx.lineTo(canvasWidth - r, 0);
+              ctx.quadraticCurveTo(canvasWidth, 0, canvasWidth, r);
+              ctx.lineTo(canvasWidth, canvasHeight - r);
+              ctx.quadraticCurveTo(
+                canvasWidth,
+                canvasHeight,
+                canvasWidth - r,
+                canvasHeight,
+              );
+              ctx.lineTo(r, canvasHeight);
+              ctx.quadraticCurveTo(0, canvasHeight, 0, canvasHeight - r);
+              ctx.lineTo(0, r);
+              ctx.quadraticCurveTo(0, 0, r, 0);
+              ctx.closePath();
+              ctx.clip();
+
+              ctx.drawImage(
+                img,
+                offsetX,
+                offsetY,
+                drawWidth,
+                drawHeight,
+                0,
+                0,
+                canvasWidth,
+                canvasHeight,
+              );
+
+              const texture = new THREE.CanvasTexture(canvas);
+              texture.colorSpace = THREE.SRGBColorSpace;
+              texture.anisotropy = 4;
+              resolve(texture);
+            };
+            img.onerror = () => resolve(createPlaceholder(idx));
+            img.src = MY_PHOTOS[idx];
+          });
+        }
+        return Promise.resolve(createPlaceholder(idx));
+      }
+
+      function createPlaceholder(idx) {
+        const photoW = 1.78,
+          photoH = 2.63;
+        const width = 1024;
+        const height = Math.round(width * (photoH / photoW));
+        const c = document.createElement("canvas");
+        c.width = width;
+        c.height = height;
+        const ctx = c.getContext("2d");
+        const grad = ctx.createRadialGradient(
+          width * 0.35,
+          height * 0.25,
+          10,
+          width * 0.5,
+          height * 0.5,
+          width * 0.72,
+        );
+        const pals = [
+          ["#21113f", "#725cff", "#f7e7ff"],
+          ["#081c3d", "#4389ff", "#f7f1d8"],
+          ["#1b1033", "#d46eff", "#fff0c7"],
+          ["#101b3d", "#74d7ff", "#fff7db"],
+        ];
+        const p = pals[idx % 4];
+        grad.addColorStop(0, p[2]);
+        grad.addColorStop(0.24, p[1]);
+        grad.addColorStop(1, p[0]);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+        for (let i = 0; i < 50; i++) {
+          ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.5 + 0.2})`;
+          ctx.beginPath();
+          ctx.arc(
+            Math.random() * width,
+            Math.random() * height,
+            Math.random() * 2.5,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        }
+        if (idx % 2 === 0) {
+          ctx.fillStyle = "rgba(255,246,210,0.95)";
+          ctx.beginPath();
+          ctx.arc(width * 0.5, height * 0.45, height * 0.18, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = "rgba(255,240,248,0.95)";
+          ctx.save();
+          ctx.translate(width * 0.5, height * 0.44);
+          ctx.beginPath();
+          ctx.moveTo(0, height * 0.05);
+          ctx.bezierCurveTo(
+            -width * 0.18,
+            -height * 0.07,
+            -width * 0.1,
+            -height * 0.22,
+            0,
+            -height * 0.12,
+          );
+          ctx.bezierCurveTo(
+            width * 0.1,
+            -height * 0.22,
+            width * 0.18,
+            -height * 0.07,
+            0,
+            height * 0.05,
+          );
+          ctx.fill();
+          ctx.restore();
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        return tex;
+      }
+
+      // ─── Textures de la lune : carte couleur + carte de relief (bump) ───
+      // pour un vrai rendu de cratères avec ombres, au lieu d'une boule plate.
+      function createMoonTextures() {
+        const size = 1024;
+        const colorCanvas = document.createElement("canvas");
+        colorCanvas.width = colorCanvas.height = size;
+        const cctx = colorCanvas.getContext("2d");
+        const bumpCanvas = document.createElement("canvas");
+        bumpCanvas.width = bumpCanvas.height = size;
+        const bctx = bumpCanvas.getContext("2d");
+
+        // Base : gris lunaire chaud et plus contrasté qu'un simple blanc cassé
+        cctx.fillStyle = "#cdc6ba";
+        cctx.fillRect(0, 0, size, size);
+        bctx.fillStyle = "#808080";
+        bctx.fillRect(0, 0, size, size);
+
+        // Grandes "mers" lunaires (zones sombres, comme les vraies maria)
+        for (let i = 0; i < 8; i++) {
+          const x = Math.random() * size,
+            y = Math.random() * size,
+            r = 70 + Math.random() * 150;
+          const g = cctx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, "rgba(85,80,72,0.55)");
+          g.addColorStop(1, "rgba(85,80,72,0)");
+          cctx.fillStyle = g;
+          cctx.beginPath();
+          cctx.arc(x, y, r, 0, Math.PI * 2);
+          cctx.fill();
+        }
+
+        // Cratères : ombre interne + rebord clair, repris à l'identique dans la bump map
+        // pour que la lumière les sculpte vraiment en 3D.
+        for (let i = 0; i < 260; i++) {
+          const x = Math.random() * size,
+            y = Math.random() * size,
+            r = 3 + Math.random() * 36;
+
+          const shade = cctx.createRadialGradient(
+            x - r * 0.25,
+            y - r * 0.25,
+            0,
+            x,
+            y,
+            r,
+          );
+          shade.addColorStop(0, "rgba(55,50,44,0.55)");
+          shade.addColorStop(0.7, "rgba(55,50,44,0.2)");
+          shade.addColorStop(0.85, "rgba(255,250,235,0.4)");
+          shade.addColorStop(1, "rgba(255,250,235,0)");
+          cctx.fillStyle = shade;
+          cctx.beginPath();
+          cctx.arc(x, y, r, 0, Math.PI * 2);
+          cctx.fill();
+
+          const bshade = bctx.createRadialGradient(x, y, 0, x, y, r);
+          bshade.addColorStop(0, "rgba(30,30,30,0.95)");
+          bshade.addColorStop(0.72, "rgba(30,30,30,0.45)");
+          bshade.addColorStop(0.82, "rgba(235,235,235,0.95)");
+          bshade.addColorStop(1, "rgba(128,128,128,0)");
+          bctx.fillStyle = bshade;
+          bctx.beginPath();
+          bctx.arc(x, y, r, 0, Math.PI * 2);
+          bctx.fill();
+        }
+
+        // Grain fin pour casser les aplats et accentuer le réalisme
+        for (let i = 0; i < 3500; i++) {
+          const v = Math.random() * 44 - 22;
+          cctx.fillStyle = `rgba(${128 + v},${122 + v},${114 + v},0.07)`;
+          cctx.fillRect(Math.random() * size, Math.random() * size, 1.4, 1.4);
+        }
+
+        const moonColorTex = new THREE.CanvasTexture(colorCanvas);
+        moonColorTex.colorSpace = THREE.SRGBColorSpace;
+        const moonBumpTex = new THREE.CanvasTexture(bumpCanvas);
+        return { moonColorTex, moonBumpTex };
+      }
+
+      function initScene() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(
+          42,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          100,
+        );
+        camera.position.set(0, 0.2, camDist);
+        renderer = new THREE.WebGLRenderer({
+          canvas: document.getElementById("webgl"),
+          antialias: true,
+          alpha: true,
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+        world = new THREE.Group();
+        scene.add(world);
+        frameGroup = new THREE.Group();
+        frameGroup.visible = false;
+        world.add(frameGroup);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const moonLight = new THREE.PointLight(0xfff2d6, 5.5, 30);
+        moonLight.position.set(4.8, 5.8, 6.2);
+        scene.add(moonLight);
+        scene.add(new THREE.PointLight(0xff88aa, 2.5, 22));
+        scene.add(new THREE.DirectionalLight(0xaaccff, 2.2));
+
+        // Étoiles — champ dense + couche scintillante pour plus de réalisme
+        const STAR_COUNT = 5000;
+        const starsGeo = new THREE.BufferGeometry();
+        const starsPos = new Float32Array(STAR_COUNT * 3);
+        const starsCol = new Float32Array(STAR_COUNT * 3);
+        for (let i = 0; i < STAR_COUNT; i++) {
+          const r = 15 + Math.random() * 45;
+          const th = Math.random() * Math.PI * 2;
+          const ph = Math.asin(2 * Math.random() - 1);
+          starsPos[i * 3] = Math.cos(th) * Math.cos(ph) * r;
+          starsPos[i * 3 + 1] = Math.sin(ph) * r;
+          starsPos[i * 3 + 2] = Math.sin(th) * Math.cos(ph) * r;
+          // Teinte : majoritairement blanc, quelques étoiles bleutées ou ambrées
+          const tint = Math.random();
+          let cr = 1,
+            cg = 1,
+            cb = 1;
+          if (tint < 0.12) {
+            cr = 0.75;
+            cg = 0.85;
+            cb = 1;
+          } else if (tint < 0.22) {
+            cr = 1;
+            cg = 0.92;
+            cb = 0.78;
+          }
+          const b = 0.55 + Math.random() * 0.45;
+          starsCol[i * 3] = cr * b;
+          starsCol[i * 3 + 1] = cg * b;
+          starsCol[i * 3 + 2] = cb * b;
+        }
+        starsGeo.setAttribute(
+          "position",
+          new THREE.BufferAttribute(starsPos, 3),
+        );
+        starsGeo.setAttribute("color", new THREE.BufferAttribute(starsCol, 3));
+        stars = new THREE.Points(
+          starsGeo,
+          new THREE.PointsMaterial({
+            size: 0.07,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            sizeAttenuation: true,
+          }),
+        );
+        scene.add(stars);
+
+        // Couche d'étoiles scintillantes (plus brillantes, avec un léger clignotement)
+        const TWINKLE_COUNT = 160;
+        const twinklePos = new Float32Array(TWINKLE_COUNT * 3);
+        const twinklePhase = new Float32Array(TWINKLE_COUNT);
+        const twinkleSize = new Float32Array(TWINKLE_COUNT);
+        for (let i = 0; i < TWINKLE_COUNT; i++) {
+          const r = 18 + Math.random() * 42;
+          const th = Math.random() * Math.PI * 2;
+          const ph = Math.asin(2 * Math.random() - 1);
+          twinklePos[i * 3] = Math.cos(th) * Math.cos(ph) * r;
+          twinklePos[i * 3 + 1] = Math.sin(ph) * r;
+          twinklePos[i * 3 + 2] = Math.sin(th) * Math.cos(ph) * r;
+          twinklePhase[i] = Math.random() * Math.PI * 2;
+          twinkleSize[i] = 5 + Math.random() * 6;
+        }
+        const twinkleGeo = new THREE.BufferGeometry();
+        twinkleGeo.setAttribute(
+          "position",
+          new THREE.BufferAttribute(twinklePos, 3),
+        );
+        twinkleGeo.setAttribute(
+          "phase",
+          new THREE.BufferAttribute(twinklePhase, 1),
+        );
+        twinkleGeo.setAttribute(
+          "size",
+          new THREE.BufferAttribute(twinkleSize, 1),
+        );
+        twinkleMat = new THREE.ShaderMaterial({
+          uniforms: { uTime: { value: 0 } },
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          vertexShader: `
+          attribute float phase;
+          attribute float size;
+          uniform float uTime;
+          varying float vAlpha;
+          void main() {
+            vAlpha = 0.45 + 0.55 * sin(uTime * 1.8 + phase);
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+          fragmentShader: `
+          varying float vAlpha;
+          void main() {
+            float d = length(gl_PointCoord - vec2(0.5));
+            if (d > 0.5) discard;
+            float glow = smoothstep(0.5, 0.0, d);
+            gl_FragColor = vec4(1.0, 1.0, 0.97, glow * vAlpha);
+          }
+        `,
+        });
+        twinkleStars = new THREE.Points(twinkleGeo, twinkleMat);
+        scene.add(twinkleStars);
+
+        // Lune — texture couleur + relief (bump) pour de vrais cratères ombrés
+        const { moonColorTex, moonBumpTex } = createMoonTextures();
+        moonMat = new THREE.MeshStandardMaterial({
+          map: moonColorTex,
+          bumpMap: moonBumpTex,
+          bumpScale: 0.045,
+          roughness: 0.95,
+          metalness: 0.0,
+          transparent: true,
+          opacity: 1,
+        });
+        moonMesh = new THREE.Mesh(
+          new THREE.SphereGeometry(1.3, 128, 128),
+          moonMat,
+        );
+        moonMesh.position.set(5.5, 1.5, -6.5);
+        scene.add(moonMesh);
+
+        const heartShape = new THREE.Shape();
+        heartShape.moveTo(0, -0.4);
+        heartShape.bezierCurveTo(-1.2, -1.6, -1.6, 0.3, 0, 1.2);
+        heartShape.bezierCurveTo(1.6, 0.3, 1.2, -1.6, 0, -0.4);
+        const heartGeo = new THREE.ExtrudeGeometry(heartShape, {
+          depth: 0.25,
+          bevelEnabled: true,
+          bevelSize: 0.1,
+          bevelThickness: 0.1,
+          bevelSegments: 12,
+        });
+        heartGeo.center();
+        const heartMat = new THREE.MeshStandardMaterial({
+          color: 0xff0000,
+          roughness: 0.2,
+          metalness: 0.1,
+          emissive: new THREE.Color(0x330011),
+        });
+        bigHeart = new THREE.Mesh(heartGeo, heartMat);
+        bigHeart.position.copy(moonMesh.position);
+        bigHeart.rotation.z = Math.PI;
+        bigHeart.visible = false;
+        bigHeart.scale.set(0.01, 0.01, 0.01);
+        scene.add(bigHeart);
+
+        const heartSpriteTex = (() => {
+          const c = document.createElement("canvas");
+          c.width = 64;
+          c.height = 64;
+          const ctx = c.getContext("2d");
+          ctx.fillStyle = "#ff5588";
+          ctx.beginPath();
+          ctx.moveTo(32, 36);
+          ctx.bezierCurveTo(12, 26, 8, 44, 32, 54);
+          ctx.bezierCurveTo(56, 44, 52, 26, 32, 36);
+          ctx.fill();
+          return new THREE.CanvasTexture(c);
+        })();
+        const spriteGroup = new THREE.Group();
+        scene.add(spriteGroup);
+        for (let i = 0; i < 90; i++) {
+          const mat = new THREE.SpriteMaterial({
+            map: heartSpriteTex,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          });
+          const sp = new THREE.Sprite(mat);
+          sp.scale.set(0.4 + Math.random() * 0.3, 0.4 + Math.random() * 0.3, 1);
+          sp.visible = false;
+          sp.userData = {
+            velY: -0.7 - Math.random() * 1.1,
+            rotSpd: (Math.random() - 0.5) * 0.04,
+          };
+          spriteGroup.add(sp);
+          heartSprites.push(sp);
+        }
+
+        const FW = 2.15,
+          FH = 3.0,
+          FR = 0.34,
+          B = 0.17,
+          RR = 4.0;
+        function roundedRectShape(w, h, r) {
+          const shape = new THREE.Shape();
+          shape.moveTo(-w / 2 + r, -h / 2);
+          shape.lineTo(w / 2 - r, -h / 2);
+          shape.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+          shape.lineTo(w / 2, h / 2 - r);
+          shape.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+          shape.lineTo(-w / 2 + r, h / 2);
+          shape.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+          shape.lineTo(-w / 2, -h / 2 + r);
+          shape.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+          return shape;
+        }
+        function createRoundedPlane(w, h, r) {
+          return new THREE.ShapeGeometry(roundedRectShape(w, h, r), 48);
+        }
+        function createLiquidFrame(w, h, r, border) {
+          const outer = roundedRectShape(w, h, r);
+          const inner = roundedRectShape(
+            w - border * 2,
+            h - border * 2,
+            Math.max(0.05, r - border * 0.42),
+          );
+          outer.holes.push(inner);
+          const geo = new THREE.ExtrudeGeometry(outer, {
+            depth: 0.18,
+            bevelEnabled: true,
+            bevelSize: 0.08,
+            bevelThickness: 0.08,
+            bevelSegments: 16,
+            curveSegments: 42,
+          });
+          geo.center();
+          return geo;
+        }
+        const glassMat = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.34,
+          roughness: 0.05,
+          metalness: 0,
+          transmission: 0.72,
+          thickness: 0.85,
+          ior: 1.42,
+          clearcoat: 1,
+          clearcoatRoughness: 0.03,
+          reflectivity: 0.95,
+          side: THREE.DoubleSide,
+        });
+        const bubbleMat = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.22,
+          roughness: 0.05,
+          transmission: 0.85,
+          thickness: 0.3,
+          ior: 1.3,
+          clearcoat: 1,
+        });
+
+        async function buildFrames() {
+          for (let i = 0; i < FRAME_COUNT; i++) {
+            const h = new THREE.Group();
+            const a = (i / FRAME_COUNT) * Math.PI * 2,
+              y = (Math.random() - 0.5) * 1.6;
+            h.position.set(Math.cos(a) * RR, y, Math.sin(a) * RR);
+            h.lookAt(0, 0.1, 0);
+            h.rotation.z = Math.sin(i * 0.7) * 0.13;
+            const pg = new THREE.PlaneGeometry(FW - B * 2.2, FH - B * 2.2);
+            const tex = await loadFrameTexture(i);
+            const pm = new THREE.MeshStandardMaterial({
+              map: tex,
+              roughness: 0.44,
+              side: THREE.DoubleSide,
+            });
+            const pic = new THREE.Mesh(pg, pm);
+            pic.position.z = 0.015;
+            h.add(pic);
+            const fg = createLiquidFrame(FW, FH, FR, B);
+            const glass = new THREE.Mesh(fg, glassMat.clone());
+            glass.position.z = 0.08;
+            h.add(glass);
+            const sg = createRoundedPlane(FW * 0.72, FH * 0.16, FR * 0.35);
+            const shine = new THREE.Mesh(
+              sg,
+              new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.34,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+              }),
+            );
+            shine.position.set(-0.14, FH * 0.19, 0.2);
+            shine.rotation.z = -0.5;
+            h.add(shine);
+            const bubble = new THREE.Mesh(
+              new THREE.SphereGeometry(0.16, 24, 24),
+              bubbleMat.clone(),
+            );
+            bubble.position.set(
+              FW * 0.34,
+              -FH * 0.38,
+              0.3 + Math.random() * 0.15,
+            );
+            h.add(bubble);
+            h.userData = {
+              pic,
+              pm,
+              glass,
+              bubble,
+              baseY: y,
+              bobOffset: Math.random() * Math.PI * 2,
+              pop: 0,
+            };
+            frameGroup.add(h);
+            frames.push(h);
+          }
+        }
+        buildFrames();
+
+        const canvasEl = document.getElementById("webgl");
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // ─── Détection de "tap" maison ───
+        // On n'utilise plus l'événement natif 'click', peu fiable sur Android quand
+        // combiné à des Pointer Events / setPointerCapture (souvent avalé ou jamais
+        // déclenché selon le navigateur). On mesure nous-mêmes la distance et la
+        // durée entre pointerdown et pointerup : si c'est court et quasi immobile,
+        // c'est un tap, sinon c'est un glissé de rotation.
+        function handleTap(clientX, clientY) {
+          if (typingStarted && !typingFinished) return;
+          mouse.x = (clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+          if (!bigHeartAppeared) {
+            if (
+              moonMesh.visible &&
+              raycaster.intersectObject(moonMesh).length > 0
+            ) {
+              let op = 1;
+              const fade = setInterval(() => {
+                op -= 0.04;
+                moonMat.opacity = Math.max(0, op);
+                if (op <= 0) {
+                  clearInterval(fade);
+                  moonMesh.visible = false;
+                }
+              }, 20);
+              setTimeout(() => {
+                bigHeart.visible = true;
+                bigHeartAppeared = true;
+                let s = 0.01;
+                const grow = setInterval(() => {
+                  s += (1 - s) * 0.1;
+                  bigHeart.scale.set(s, s, s);
+                  if (s > 0.99) {
+                    clearInterval(grow);
+                    bigHeart.scale.set(1, 1, 1);
+                  }
+                }, 16);
+              }, 600);
+            }
+            return;
+          }
+          if (bigHeartAppeared && !heartClicked) {
+            if (raycaster.intersectObject(bigHeart).length > 0) {
+              heartClicked = true;
+              heartRainActive = true;
+              heartSprites.forEach((sp) => {
+                sp.visible = true;
+                sp.position.set(
+                  (Math.random() - 0.5) * 12,
+                  5 + Math.random() * 3,
+                  (Math.random() - 0.5) * 10,
+                );
+              });
+              if (!typingStarted) {
+                typingStarted = true;
+                document.getElementById("typewriter").classList.add("visible");
+                let idx = 0;
+                const interval = setInterval(() => {
+                  if (idx < LOVE_LETTER.length) {
+                    document.getElementById("typewriter-text").textContent +=
+                      LOVE_LETTER.charAt(idx);
+                    idx++;
+                  } else {
+                    clearInterval(interval);
+                    document.getElementById("cursor").style.display = "none";
+                    typingFinished = true;
+                    setTimeout(() => {
+                      document
+                        .getElementById("typewriter")
+                        .classList.remove("visible");
+                      frameGroup.visible = true;
+                      frames.forEach((f) => {
+                        f.scale.set(1, 1, 1);
+                      });
+                    }, 6000);
+                  }
+                }, 35);
+              }
+            }
+          }
+        }
+
+        canvasEl.addEventListener("mousemove", (e) => {
+          mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+          mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+          const targets = [];
+          if (moonMesh.visible) targets.push(moonMesh);
+          if (bigHeart.visible) targets.push(bigHeart);
+          const hits = targets.length
+            ? raycaster.intersectObjects(targets)
+            : [];
+          canvasEl.classList.toggle("clickable", hits.length > 0);
+        });
+
+        let pointerDownPos = null;
+        let pointerDownTime = 0;
+        const TAP_MAX_DIST = 12; // px — au-delà, on considère que c'est un glissé, pas un tap
+        const TAP_MAX_TIME = 600; // ms
+
+        canvasEl.addEventListener("pointerdown", (e) => {
+          pointer.active = true;
+          pointer.lastX = e.clientX;
+          pointer.lastY = e.clientY;
+          pointer.velX = 0;
+          pointer.velY = 0;
+          pointerDownPos = { x: e.clientX, y: e.clientY };
+          pointerDownTime = performance.now();
+          if (e.pointerType === "touch")
+            canvasEl.setPointerCapture(e.pointerId);
+        });
+        canvasEl.addEventListener("pointermove", (e) => {
+          if (!pointer.active) return;
+          const dx = e.clientX - pointer.lastX,
+            dy = e.clientY - pointer.lastY;
+          pointer.targetRotY += dx * 0.006;
+          pointer.targetRotX += dy * 0.0048;
+          pointer.targetRotX = Math.max(
+            -0.9,
+            Math.min(0.9, pointer.targetRotX),
+          );
+          pointer.velX = dx * 0.004;
+          pointer.velY = dy * 0.003;
+          pointer.lastX = e.clientX;
+          pointer.lastY = e.clientY;
+        });
+        window.addEventListener("pointerup", (e) => {
+          pointer.active = false;
+          if (pointerDownPos) {
+            const dist = Math.hypot(
+              e.clientX - pointerDownPos.x,
+              e.clientY - pointerDownPos.y,
+            );
+            const duration = performance.now() - pointerDownTime;
+            if (dist < TAP_MAX_DIST && duration < TAP_MAX_TIME) {
+              handleTap(e.clientX, e.clientY);
+            }
+            pointerDownPos = null;
+          }
+        });
+        window.addEventListener("pointercancel", () => {
+          pointer.active = false;
+          pointerDownPos = null;
+        });
+
+        canvasEl.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            targetCamDist += e.deltaY * 0.006;
+            targetCamDist = Math.max(5.8, Math.min(13, targetCamDist));
+          },
+          { passive: false },
+        );
+        canvasEl.addEventListener(
+          "touchmove",
+          (e) => {
+            if (e.touches.length === 2) {
+              const a = e.touches[0],
+                b = e.touches[1];
+              const d = Math.hypot(
+                a.clientX - b.clientX,
+                a.clientY - b.clientY,
+              );
+              if (pointer.pinchDist > 0) {
+                const delta = pointer.pinchDist - d;
+                targetCamDist += delta * 0.018;
+                targetCamDist = Math.max(5.8, Math.min(13, targetCamDist));
+              }
+              pointer.pinchDist = d;
+            }
+          },
+          { passive: false },
+        );
+        canvasEl.addEventListener("touchend", () => {
+          pointer.pinchDist = 0;
+        });
+        window.addEventListener("resize", () => {
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+        });
+
+        experienceStarted = true;
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (!experienceStarted) return;
+        const t = clock.getElapsedTime();
+
+        if (!pointer.active) {
+          pointer.targetRotY += pointer.velX;
+          pointer.targetRotX += pointer.velY;
+          pointer.velX *= 0.93;
+          pointer.velY *= 0.91;
+        }
+        world.rotation.y += (pointer.targetRotY - world.rotation.y) * 0.08;
+        world.rotation.x += (pointer.targetRotX - world.rotation.x) * 0.08;
+        camDist += (targetCamDist - camDist) * 0.08;
+        camera.position.z = camDist;
+        camera.lookAt(0, 0, 0);
+
+        if (heartRainActive) {
+          heartSprites.forEach((sp) => {
+            if (!sp.visible) return;
+            sp.position.y += sp.userData.velY * 0.02;
+            sp.rotation.z += sp.userData.rotSpd;
+            if (sp.position.y < -6) {
+              sp.position.y = 5 + Math.random() * 3;
+              sp.position.x = (Math.random() - 0.5) * 12;
+              sp.position.z = (Math.random() - 0.5) * 10;
+            }
+          });
+        }
+        if (frameGroup.visible) {
+          frameGroup.rotation.y += 0.002;
+          frames.forEach((f, i) => {
+            f.position.y =
+              f.userData.baseY +
+              Math.sin(t * 1.2 + f.userData.bobOffset) * 0.18;
+            f.rotation.z += Math.sin(t + i) * 0.0004; // ← point‑virgule obligatoire
+            // suppression complète du bloc if (f.userData.pop)
+          });
+        }
+        stars.rotation.y += 0.0003;
+        if (twinkleStars) twinkleStars.rotation.y += 0.0003;
+        if (twinkleMat) twinkleMat.uniforms.uTime.value = t;
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>
