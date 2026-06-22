@@ -184,37 +184,8 @@
       }
 
       const FRAME_COUNT = 7;
-      const MY_PHOTOS = [
-        "https://i.ibb.co/bjcBwQBn/Whats-App-Image-2026-04-15-at-11-07-53.jpg",
-        "https://i.ibb.co/s87tdFT/Whats-App-Image-2026-04-15-at-11-07-53-2.jpg",
-        "https://i.ibb.co/RkpNJQ1h/Whats-App-Image-2026-04-15-at-11-07-52.jpg",
-        "https://i.ibb.co/JV4PG6p/Whats-App-Image-2026-04-15-at-11-07-52-2.jpg",
-        "https://i.ibb.co/b5Gph4jc/Whats-App-Image-2026-04-15-at-11-07-52-1.jpg",
-        "https://i.ibb.co/S4hKqbdf/Whats-App-Image-2026-04-15-at-11-07-50-2.jpg",
-        "https://i.ibb.co/DPDkdRxh/Whats-App-Image-2026-04-15-at-11-07-50.jpg",
-      ];
-      const LOVE_LETTER =
-        `J’espère que tu vas bien, ma chère amie, mon étoile, ma Moon 🌙.\n` +
-        `Aujourd’hui, je prends un moment pour te dire tout ce que je garde parfois en silence.` +
-        ` Tu es la plus belle chose que la vie m’ait offerte — et quand je dis belle, je ne parle pas seulement de tes yeux ou de ton sourire qui illumine une pièce.` +
-        ` Je parle de ton âme.` +
-        ` De cette façon que tu as de comprendre les gens avant même qu’ils ne parlent, de cette intelligence rare qui brille dans tes mots, dans tes idées, dans ta manière de voir le monde.` +
-        ` Tu es drôle, dingue parfois, et tellement attachante que chaque instant avec toi devient un souvenir précieux.\n\n` +
-        `Je repense souvent à nos éclats de rire, à nos discussions improbables qui s’étiraient jusqu’au bout de la nuit.` +
-        ` À tout ce qu’on a construit ensemble, sans même le vouloir, juste parce que c’était nous.` +
-        ` Tu m’as vu comme personne ne m’avait vu, et ça, ça ne s’oublie pas.\n\n` +
-        `Je sais que ces derniers temps, la vie nous a un peu éloignés.` +
-        ` Les jours passent plus vite, les messages se font plus courts, les silences un peu plus longs.` +
-        ` Je ne t’en veux pas, et je veux que tu saches que je ne doute pas une seconde de ce qu’on est.` +
-        ` Les vraies amitiés ne se mesurent pas à la fréquence des conversations, mais à la force de ce qu’on ressent quand on se retrouve.` +
-        ` Et moi, je reste là, inébranlable, fier de toi, convaincu que tu vas accomplir tout ce que tu désires.\n\n` +
-        `Ne doute jamais de toi, ma Moon.` +
-        ` Tu as en toi tout ce qu’il faut pour réussir : la force, le talent, le cœur.` +
-        ` Et même si la route est longue, même si parfois tu te sens seule, n’oublie jamais qu’il y a quelqu’un ici-bas qui croit en toi plus fort que tout.\n\n` +
-        `Prends soin de toi.` +
-        ` Et souviens-toi que, peu importe où la vie nous mène, une part de mon amitié t’appartiendra toujours.\n\n` +
-        `Avec toute ma tendresse,\n` +
-        `                                  my Moon 🌙`;
+      const MY_PHOTOS = [];
+      const LOVE_LETTER = `BRICIA BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA  BRICIA bla bla bla bla bla bla bla bla  bla bla bla bla bla bla bla bla bla bla `;
 
       const introVid = document.getElementById("introVid");
       const introDiv = document.getElementById("intro-video");
@@ -698,6 +669,8 @@
           roughness: 0.2,
           metalness: 0.1,
           emissive: new THREE.Color(0x330011),
+          transparent: true,
+          opacity: 1,
         });
         bigHeart = new THREE.Mesh(heartGeo, heartMat);
         bigHeart.position.copy(moonMesh.position);
@@ -923,7 +896,27 @@
               });
               if (!typingStarted) {
                 typingStarted = true;
+                // Démarrer le fondu du titre
+                const title = document.getElementById("titleOverlay");
+                title.style.animation = "none"; // annule fadeIn
+                title.style.transition = "none"; // reset
+                title.style.opacity = "1"; // repart de l’opacité actuelle
+                title.offsetHeight; // force le navigateur à prendre en compte l’état
+                title.style.transition = "opacity 6s ease"; // lance la transition de 6 secondes
+                title.style.opacity = "0"; // vers transparence
+
+                // Masquer le titre automatiquement quand le fondu sera terminé
+                title.addEventListener(
+                  "transitionend",
+                  () => {
+                    title.style.display = "none";
+                  },
+                  { once: true },
+                );
+
+                // ✅ Afficher la boîte de texte
                 document.getElementById("typewriter").classList.add("visible");
+
                 let idx = 0;
                 const interval = setInterval(() => {
                   if (idx < LOVE_LETTER.length) {
@@ -935,13 +928,37 @@
                     document.getElementById("cursor").style.display = "none";
                     typingFinished = true;
                     setTimeout(() => {
+                      // Cacher la boîte de texte
                       document
                         .getElementById("typewriter")
                         .classList.remove("visible");
+
+                      // S'assurer que le titre est bien masqué (il l'est déjà via l'opacité)
+                      const title = document.getElementById("titleOverlay");
+                      title.style.opacity = "0";
+                      title.style.display = "none";
+
+                      // Afficher les cadres photo
                       frameGroup.visible = true;
                       frames.forEach((f) => {
                         f.scale.set(1, 1, 1);
                       });
+
+                      // --- Faire fondre le cœur 2 secondes plus tard ---
+                      setTimeout(() => {
+                        if (bigHeart.visible) {
+                          let heartOpacity = 1;
+                          const heartFadeOut = setInterval(() => {
+                            heartOpacity -= 0.05; // réduction progressive
+                            if (heartOpacity <= 0) {
+                              heartOpacity = 0;
+                              clearInterval(heartFadeOut);
+                              bigHeart.visible = false;
+                            }
+                            bigHeart.material.opacity = heartOpacity;
+                          }, 50); // toutes les 50 ms
+                        }
+                      }, 2000); // délai de 2 secondes après l'apparition des cadres
                     }, 6000);
                   }
                 }, 35);
