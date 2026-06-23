@@ -80,7 +80,7 @@
         `Avec toute ma tendresse,\n` +
         `                                  my Moon 🌙`;
 
-      // ---------- GESTION AUDIO (automatique, sans clic) ----------
+      // ---------- GESTION AUDIO (automatique avec la vidéo) ----------
       let audioCtx;
       let source;
       let gainNode;
@@ -89,41 +89,33 @@
         try {
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           gainNode = audioCtx.createGain();
-          gainNode.gain.value = 0.5; // volume à 50%
+          gainNode.gain.value = 0.5;
 
-          // Charge le fichier mp3 en mémoire
           const response = await fetch('musique.mp3');
           const arrayBuffer = await response.arrayBuffer();
           const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-          // Crée un buffer source pour jouer en boucle
           source = audioCtx.createBufferSource();
           source.buffer = audioBuffer;
           source.loop = true;
           source.connect(gainNode);
           gainNode.connect(audioCtx.destination);
 
-          // Démarre la lecture (elle sera suspendue tant que le contexte n'est pas "running")
-          source.start(0);
-
-          // Tente de faire passer le contexte en "running" immédiatement
           if (audioCtx.state === 'suspended') {
-            await audioCtx.resume();
+            introVid.addEventListener('play', () => {
+              audioCtx.resume().then(() => {
+                source.start(0);
+              });
+            }, { once: true });
+          } else {
+            source.start(0);
           }
         } catch (err) {
-          console.warn("L'audio n'a pas pu être chargé automatiquement. Il faudra peut-être un clic.", err);
+          console.warn("L'audio n'a pas pu être chargé automatiquement.", err);
         }
       }
 
-      // Tente d'initialiser l'audio au plus tôt
       initAudio();
-
-      // Si le contexte audio est suspendu (bloqué par le navigateur), on attend une interaction utilisateur
-      document.addEventListener('click', () => {
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-      }, { once: true });
 
       // ---------- VIDÉO ----------
       const introVid = document.getElementById("introVid");
@@ -133,10 +125,8 @@
       function startExperience() {
         if (experienceLaunched) return;
         experienceLaunched = true;
-        // Fondu de sortie de la vidéo
         introDiv.style.opacity = "0";
         setTimeout(() => { introDiv.style.display = "none"; }, 800);
-        // Créer la scène et lancer le rendu
         initScene();
         animate();
         requestAnimationFrame(() => {
@@ -153,12 +143,11 @@
       });
       introVid.addEventListener("ended", startExperience);
       introVid.addEventListener("click", () => {
-        introVid.pause();
         startExperience();
       });
 
       // ---------- VARIABLES THREE.JS ----------
-      let scene, camera, renderer, world, frameGroup, stars, twinkleStars, twinkleMat;
+      let scene, camera, renderer, world, frameGroup, stars, twinkleStars, twinkleMat, sparkles;
       let moonMesh, bigHeart, heartSprites = [], frames = [];
       let moonMat;
       let bigHeartAppeared = false, heartClicked = false, typingStarted = false, typingFinished = false, heartRainActive = false;
@@ -167,9 +156,7 @@
       let experienceStarted = false;
       const clock = new THREE.Clock();
 
-      // ... (le reste du code est strictement identique à la version précédente, il n'y a aucun changement)
-      // Je le remets intégralement pour que tu puisses copier-coller en toute confiance.
-
+      // ---------- FONCTIONS DE CHARGEMENT TEXTURES ----------
       function loadFrameTexture(idx) {
         const photoW = 1.78, photoH = 2.63;
         const cornerRadius = 40;
@@ -292,6 +279,8 @@
         const moonLight = new THREE.PointLight(0xfff2d6,5.5,30); moonLight.position.set(4.8,5.8,6.2); scene.add(moonLight);
         scene.add(new THREE.PointLight(0xff88aa,2.5,22));
         scene.add(new THREE.DirectionalLight(0xaaccff,2.2));
+
+        // Étoiles denses
         const STAR_COUNT=5000; const starsGeo=new THREE.BufferGeometry(); const starsPos=new Float32Array(STAR_COUNT*3); const starsCol=new Float32Array(STAR_COUNT*3);
         for(let i=0;i<STAR_COUNT;i++){
           const r=15+Math.random()*45, th=Math.random()*Math.PI*2, ph=Math.asin(2*Math.random()-1);
@@ -304,7 +293,9 @@
         starsGeo.setAttribute("color",new THREE.BufferAttribute(starsCol,3));
         stars=new THREE.Points(starsGeo, new THREE.PointsMaterial({size:0.07,vertexColors:true,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true}));
         scene.add(stars);
-        const TWINKLE_COUNT=160; const twinklePos=new Float32Array(TWINKLE_COUNT*3); const twinklePhase=new Float32Array(TWINKLE_COUNT); const twinkleSize=new Float32Array(TWINKLE_COUNT);
+
+        // Étoiles scintillantes (twinkles)
+        const TWINKLE_COUNT=400; const twinklePos=new Float32Array(TWINKLE_COUNT*3); const twinklePhase=new Float32Array(TWINKLE_COUNT); const twinkleSize=new Float32Array(TWINKLE_COUNT);
         for(let i=0;i<TWINKLE_COUNT;i++){
           const r=18+Math.random()*42, th=Math.random()*Math.PI*2, ph=Math.asin(2*Math.random()-1);
           twinklePos[i*3]=Math.cos(th)*Math.cos(ph)*r; twinklePos[i*3+1]=Math.sin(ph)*r; twinklePos[i*3+2]=Math.sin(th)*Math.cos(ph)*r;
@@ -318,16 +309,35 @@
           vertexShader:`attribute float phase;attribute float size;uniform float uTime;varying float vAlpha;void main(){vAlpha=0.45+0.55*sin(uTime*1.8+phase);vec4 mvPosition=modelViewMatrix*vec4(position,1.0);gl_PointSize=size*(300.0/-mvPosition.z);gl_Position=projectionMatrix*mvPosition;}`,
           fragmentShader:`varying float vAlpha;void main(){float d=length(gl_PointCoord-vec2(0.5));if(d>0.5)discard;float glow=smoothstep(0.5,0.0,d);gl_FragColor=vec4(1.0,1.0,0.97,glow*vAlpha);}`});
         twinkleStars=new THREE.Points(twinkleGeo,twinkleMat); scene.add(twinkleStars);
+
+        // Paillettes supplémentaires
+        const SPARKLE_COUNT=300; const sparklePos=new Float32Array(SPARKLE_COUNT*3);
+        for(let i=0;i<SPARKLE_COUNT;i++){
+          const r=20+Math.random()*40, th=Math.random()*Math.PI*2, ph=Math.asin(2*Math.random()-1);
+          sparklePos[i*3]=Math.cos(th)*Math.cos(ph)*r; sparklePos[i*3+1]=Math.sin(ph)*r; sparklePos[i*3+2]=Math.sin(th)*Math.cos(ph)*r;
+        }
+        const sparkleGeo=new THREE.BufferGeometry();
+        sparkleGeo.setAttribute('position', new THREE.BufferAttribute(sparklePos,3));
+        const sparkleMat=new THREE.PointsMaterial({color:0xffeedd, size:0.12, blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, opacity:0.8});
+        sparkles=new THREE.Points(sparkleGeo,sparkleMat); scene.add(sparkles);
+
+        // Lune
         const {moonColorTex,moonBumpTex}=createMoonTextures();
         moonMat=new THREE.MeshStandardMaterial({map:moonColorTex,bumpMap:moonBumpTex,bumpScale:0.045,roughness:0.95,metalness:0.0,transparent:true,opacity:1});
         moonMesh=new THREE.Mesh(new THREE.SphereGeometry(1.3,128,128),moonMat); moonMesh.position.set(5.5,1.5,-6.5); scene.add(moonMesh);
+
+        // Cœur
         const heartShape=new THREE.Shape(); heartShape.moveTo(0,-0.4); heartShape.bezierCurveTo(-1.2,-1.6,-1.6,0.3,0,1.2); heartShape.bezierCurveTo(1.6,0.3,1.2,-1.6,0,-0.4);
         const heartGeo=new THREE.ExtrudeGeometry(heartShape,{depth:0.25,bevelEnabled:true,bevelSize:0.1,bevelThickness:0.1,bevelSegments:12}); heartGeo.center();
         const heartMat=new THREE.MeshStandardMaterial({color:0xff0000,roughness:0.2,metalness:0.1,emissive:new THREE.Color(0x330011),transparent:true,opacity:1});
         bigHeart=new THREE.Mesh(heartGeo,heartMat); bigHeart.position.copy(moonMesh.position); bigHeart.rotation.z=Math.PI; bigHeart.visible=false; bigHeart.scale.set(0.01,0.01,0.01); scene.add(bigHeart);
+
+        // Pluie de cœurs
         const heartSpriteTex=(()=>{const c=document.createElement("canvas");c.width=64;c.height=64;const ctx=c.getContext("2d");ctx.fillStyle="#ff5588";ctx.beginPath();ctx.moveTo(32,36);ctx.bezierCurveTo(12,26,8,44,32,54);ctx.bezierCurveTo(56,44,52,26,32,36);ctx.fill();return new THREE.CanvasTexture(c);})();
         const spriteGroup=new THREE.Group(); scene.add(spriteGroup);
         for(let i=0;i<90;i++){const mat=new THREE.SpriteMaterial({map:heartSpriteTex,blending:THREE.AdditiveBlending,depthWrite:false});const sp=new THREE.Sprite(mat);sp.scale.set(0.4+Math.random()*0.3,0.4+Math.random()*0.3,1);sp.visible=false;sp.userData={velY:-0.7-Math.random()*1.1,rotSpd:(Math.random()-0.5)*0.04};spriteGroup.add(sp);heartSprites.push(sp);}
+
+        // Cadres photo
         const FW=2.15,FH=3.0,FR=0.34,B=0.17,RR=4.0;
         function roundedRectShape(w,h,r){const shape=new THREE.Shape();shape.moveTo(-w/2+r,-h/2);shape.lineTo(w/2-r,-h/2);shape.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);shape.lineTo(w/2,h/2-r);shape.quadraticCurveTo(w/2,h/2,w/2-r,h/2);shape.lineTo(-w/2+r,h/2);shape.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);shape.lineTo(-w/2,-h/2+r);shape.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return shape;}
         function createRoundedPlane(w,h,r){return new THREE.ShapeGeometry(roundedRectShape(w,h,r),48);}
@@ -336,6 +346,8 @@
         const bubbleMat=new THREE.MeshPhysicalMaterial({color:0xffffff,transparent:true,opacity:0.22,roughness:0.05,transmission:0.85,thickness:0.3,ior:1.3,clearcoat:1});
         async function buildFrames(){for(let i=0;i<FRAME_COUNT;i++){const h=new THREE.Group();const a=(i/FRAME_COUNT)*Math.PI*2,y=(Math.random()-0.5)*1.6;h.position.set(Math.cos(a)*RR,y,Math.sin(a)*RR);h.lookAt(0,0.1,0);h.rotation.z=Math.sin(i*0.7)*0.13;const pg=new THREE.PlaneGeometry(FW-B*2.2,FH-B*2.2);const tex=await loadFrameTexture(i);const pm=new THREE.MeshStandardMaterial({map:tex,roughness:0.44,side:THREE.DoubleSide});const pic=new THREE.Mesh(pg,pm);pic.position.z=0.015;h.add(pic);const fg=createLiquidFrame(FW,FH,FR,B);const glass=new THREE.Mesh(fg,glassMat.clone());glass.position.z=0.08;h.add(glass);const sg=createRoundedPlane(FW*0.72,FH*0.16,FR*0.35);const shine=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.34,blending:THREE.AdditiveBlending,depthWrite:false}));shine.position.set(-0.14,FH*0.19,0.2);shine.rotation.z=-0.5;h.add(shine);const bubble=new THREE.Mesh(new THREE.SphereGeometry(0.16,24,24),bubbleMat.clone());bubble.position.set(FW*0.34,-FH*0.38,0.3+Math.random()*0.15);h.add(bubble);h.userData={pic,pm,glass,bubble,baseY:y,bobOffset:Math.random()*Math.PI*2,pop:0};frameGroup.add(h);frames.push(h);}}
         buildFrames();
+
+        // Interactions
         const canvasEl=document.getElementById("webgl"); const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2();
         function handleTap(clientX,clientY){if(typingStarted&&!typingFinished)return;mouse.x=(clientX/window.innerWidth)*2-1;mouse.y=-(clientY/window.innerHeight)*2+1;raycaster.setFromCamera(mouse,camera);if(!bigHeartAppeared){if(moonMesh.visible&&raycaster.intersectObject(moonMesh).length>0){let op=1;const fade=setInterval(()=>{op-=0.04;moonMat.opacity=Math.max(0,op);if(op<=0){clearInterval(fade);moonMesh.visible=false;}},20);setTimeout(()=>{bigHeart.visible=true;bigHeartAppeared=true;let s=0.01;const grow=setInterval(()=>{s+=(1-s)*0.1;bigHeart.scale.set(s,s,s);if(s>0.99){clearInterval(grow);bigHeart.scale.set(1,1,1);}},16);},600);}return;}if(bigHeartAppeared&&!heartClicked){if(raycaster.intersectObject(bigHeart).length>0){heartClicked=true;heartRainActive=true;heartSprites.forEach(sp=>{sp.visible=true;sp.position.set((Math.random()-0.5)*12,5+Math.random()*3,(Math.random()-0.5)*10);});if(!typingStarted){typingStarted=true;const title=document.getElementById("titleOverlay");title.style.animation="none";title.style.transition="none";title.style.opacity="1";title.offsetHeight;title.style.transition="opacity 6s ease";title.style.opacity="0";title.addEventListener("transitionend",()=>{title.style.display="none";},{once:true});document.getElementById("typewriter").classList.add("visible");let idx=0;const interval=setInterval(()=>{if(idx<LOVE_LETTER.length){document.getElementById("typewriter-text").textContent+=LOVE_LETTER.charAt(idx);idx++;}else{clearInterval(interval);document.getElementById("cursor").style.display="none";typingFinished=true;setTimeout(()=>{document.getElementById("typewriter").classList.remove("visible");const title=document.getElementById("titleOverlay");title.style.opacity="0";title.style.display="none";frameGroup.visible=true;frames.forEach(f=>{f.scale.set(1,1,1);});setTimeout(()=>{if(bigHeart.visible){let heartOpacity=1;const heartFadeOut=setInterval(()=>{heartOpacity-=0.05;if(heartOpacity<=0){heartOpacity=0;clearInterval(heartFadeOut);bigHeart.visible=false;}bigHeart.material.opacity=heartOpacity;},50);}},2000);},6000);}},35);}}}}
         canvasEl.addEventListener("mousemove",e=>{mouse.x=(e.clientX/window.innerWidth)*2-1;mouse.y=-(e.clientY/window.innerHeight)*2+1;raycaster.setFromCamera(mouse,camera);const targets=[];if(moonMesh.visible)targets.push(moonMesh);if(bigHeart.visible)targets.push(bigHeart);const hits=targets.length?raycaster.intersectObjects(targets):[];canvasEl.classList.toggle("clickable",hits.length>0);});
@@ -358,7 +370,10 @@
         camDist+=(targetCamDist-camDist)*0.08; camera.position.z=camDist; camera.lookAt(0,0,0);
         if(heartRainActive){heartSprites.forEach(sp=>{if(!sp.visible)return;sp.position.y+=sp.userData.velY*0.02;sp.rotation.z+=sp.userData.rotSpd;if(sp.position.y<-6){sp.position.y=5+Math.random()*3;sp.position.x=(Math.random()-0.5)*12;sp.position.z=(Math.random()-0.5)*10;}});}
         if(frameGroup.visible){frameGroup.rotation.y+=0.002;frames.forEach((f,i)=>{f.position.y=f.userData.baseY+Math.sin(t*1.2+f.userData.bobOffset)*0.18;f.rotation.z+=Math.sin(t+i)*0.0004;});}
-        stars.rotation.y+=0.0003; if(twinkleStars)twinkleStars.rotation.y+=0.0003; if(twinkleMat)twinkleMat.uniforms.uTime.value=t;
+        stars.rotation.y+=0.0003;
+        if(twinkleStars)twinkleStars.rotation.y+=0.0003;
+        if(twinkleMat)twinkleMat.uniforms.uTime.value=t;
+        if(sparkles){sparkles.rotation.y+=0.0002;sparkles.rotation.x+=0.0001;}
         renderer.render(scene,camera);
       }
     </script>
