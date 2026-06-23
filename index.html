@@ -26,11 +26,6 @@
     </style>
   </head>
   <body>
-    <!-- Audio de fond (autoplay muet puis activé par l'utilisateur) -->
-    <audio id="bgMusic" loop autoplay muted playsinline>
-      <source src="musique.mp3" type="audio/mpeg" />
-    </audio>
-
     <div id="intro-video">
       <video id="introVid" autoplay muted playsinline webkit-playsinline preload="auto">
         <source src="intro.mp4" type="video/mp4" />
@@ -85,15 +80,50 @@
         `Avec toute ma tendresse,\n` +
         `                                  my Moon 🌙`;
 
-      // ---------- GESTION AUDIO ----------
-      const bgMusic = document.getElementById("bgMusic");
-      // Fonction pour activer le son (à appeler après un clic utilisateur)
-      function unmuteAudio() {
-        if (bgMusic.muted) {
-          bgMusic.muted = false;
-          bgMusic.play().catch(() => {});
+      // ---------- GESTION AUDIO (automatique, sans clic) ----------
+      let audioCtx;
+      let source;
+      let gainNode;
+
+      async function initAudio() {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          gainNode = audioCtx.createGain();
+          gainNode.gain.value = 0.5; // volume à 50%
+
+          // Charge le fichier mp3 en mémoire
+          const response = await fetch('musique.mp3');
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+          // Crée un buffer source pour jouer en boucle
+          source = audioCtx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.loop = true;
+          source.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          // Démarre la lecture (elle sera suspendue tant que le contexte n'est pas "running")
+          source.start(0);
+
+          // Tente de faire passer le contexte en "running" immédiatement
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
+        } catch (err) {
+          console.warn("L'audio n'a pas pu être chargé automatiquement. Il faudra peut-être un clic.", err);
         }
       }
+
+      // Tente d'initialiser l'audio au plus tôt
+      initAudio();
+
+      // Si le contexte audio est suspendu (bloqué par le navigateur), on attend une interaction utilisateur
+      document.addEventListener('click', () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }, { once: true });
 
       // ---------- VIDÉO ----------
       const introVid = document.getElementById("introVid");
@@ -103,8 +133,6 @@
       function startExperience() {
         if (experienceLaunched) return;
         experienceLaunched = true;
-        // Démuter la musique (l'utilisateur a interagi : clic sur vidéo ou tap)
-        unmuteAudio();
         // Fondu de sortie de la vidéo
         introDiv.style.opacity = "0";
         setTimeout(() => { introDiv.style.display = "none"; }, 800);
@@ -118,7 +146,6 @@
         });
       }
 
-      // Tente de lancer la vidéo automatiquement
       introVid.play().then(() => {
         introVid.addEventListener("ended", startExperience);
       }).catch(() => {
@@ -130,9 +157,6 @@
         startExperience();
       });
 
-      // Activer la musique également au premier clic sur le canvas (lune/cœur)
-      document.addEventListener("click", unmuteAudio, { once: true });
-
       // ---------- VARIABLES THREE.JS ----------
       let scene, camera, renderer, world, frameGroup, stars, twinkleStars, twinkleMat;
       let moonMesh, bigHeart, heartSprites = [], frames = [];
@@ -143,8 +167,8 @@
       let experienceStarted = false;
       const clock = new THREE.Clock();
 
-      // ... (tout le reste du code identique à la version précédente, fonctions loadFrameTexture, createPlaceholder, createMoonTextures, initScene, handleTap, animate...)
-      // Pour ne pas alourdir, le code ci-dessous reprend exactement les mêmes fonctions que dans la version précédente (celle que je t'ai donnée juste avant).
+      // ... (le reste du code est strictement identique à la version précédente, il n'y a aucun changement)
+      // Je le remets intégralement pour que tu puisses copier-coller en toute confiance.
 
       function loadFrameTexture(idx) {
         const photoW = 1.78, photoH = 2.63;
