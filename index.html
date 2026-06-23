@@ -43,9 +43,6 @@
         display: none;
         z-index: 1;
         cursor: grab;
-        /* Empêche Android de capter les gestes (scroll/zoom/long-press) à la place
-         de notre code : sans ça, les taps sur la lune/le cœur sont avalés par le
-         navigateur avant d'arriver jusqu'à nous. */
         touch-action: none;
         -webkit-user-select: none;
         user-select: none;
@@ -185,16 +182,15 @@
 
       const FRAME_COUNT = 7;
       const MY_PHOTOS = [
-        const MY_PHOTOS = [
-  "https://i.ibb.co/ksjhr2G4/Whats-App-Image-2026-06-23-at-01-14-51-1.jpg",
-  "https://i.ibb.co/21mWCm1w/Whats-App-Image-2026-06-23-at-01-14-52-1.jpg",
-  "https://i.ibb.co/nNZfFbFM/Whats-App-Image-2026-06-23-at-01-14-51.jpg",
-  "https://i.ibb.co/QvfZMJXk/Whats-App-Image-2026-06-23-at-01-14-50-1.jpg",
-  "https://i.ibb.co/dwd5N167/Whats-App-Image-2026-06-16-at-22-28-11.jpg",
-  "https://i.ibb.co/4RB6H46z/Whats-App-Image-2026-06-23-at-01-14-49.jpg",
-  "https://i.ibb.co/tTsqywqk/Whats-App-Image-2026-06-23-at-01-14-50.jpg"
-];
+        "https://i.ibb.co/ksjhr2G4/Whats-App-Image-2026-06-23-at-01-14-51-1.jpg",
+        "https://i.ibb.co/21mWCm1w/Whats-App-Image-2026-06-23-at-01-14-52-1.jpg",
+        "https://i.ibb.co/nNZfFbFM/Whats-App-Image-2026-06-23-at-01-14-51.jpg",
+        "https://i.ibb.co/QvfZMJXk/Whats-App-Image-2026-06-23-at-01-14-50-1.jpg",
+        "https://i.ibb.co/dwd5N167/Whats-App-Image-2026-06-16-at-22-28-11.jpg",
+        "https://i.ibb.co/4RB6H46z/Whats-App-Image-2026-06-23-at-01-14-49.jpg",
+        "https://i.ibb.co/tTsqywqk/Whats-App-Image-2026-06-23-at-01-14-50.jpg"
       ];
+
       const LOVE_LETTER = `J’espère que tu vas bien, ma chère amie, mon étoile, ma Moon 🌙.\n` +
         `Aujourd’hui, je prends un moment pour te dire tout ce que je garde parfois en silence.` +
         ` Tu es la plus belle chose que la vie m’ait offerte — et quand je dis belle, je ne parle pas seulement de tes yeux ou de ton sourire qui illumine une pièce.` +
@@ -224,12 +220,10 @@
       function startExperience() {
         if (experienceLaunched) return;
         experienceLaunched = true;
-        // Fondu de sortie de la vidéo
         introDiv.style.opacity = "0";
         setTimeout(() => {
           introDiv.style.display = "none";
         }, 800);
-        // Création de la scène et premier rendu
         initScene();
         animate();
         requestAnimationFrame(() => {
@@ -239,22 +233,16 @@
         });
       }
 
-      // Tente de lire la vidéo dès que possible
       introVid
         .play()
         .then(() => {
-          // La vidéo se lance, on attend sa fin
           introVid.addEventListener("ended", startExperience);
         })
         .catch(() => {
-          // La lecture automatique est refusée, on lance la scène après 500 ms
           setTimeout(startExperience, 500);
         });
 
-      // Si la vidéo est déjà en train de jouer (rare), on se raccroche à l’événement ended
       introVid.addEventListener("ended", startExperience);
-
-      // Clic pour zapper
       introVid.addEventListener("click", () => {
         introVid.pause();
         startExperience();
@@ -293,11 +281,10 @@
       let experienceStarted = false;
       const clock = new THREE.Clock();
 
-      // ─── Chargement d’une photo AVEC CORS pour éviter le canvas taché ───
       function loadFrameTexture(idx) {
         const photoW = 1.78,
           photoH = 2.63;
-        const cornerRadius = 40; // rayon fixe (coins arrondis visuels)
+        const cornerRadius = 40;
         if (MY_PHOTOS && idx < MY_PHOTOS.length) {
           return new Promise((resolve) => {
             const img = new Image();
@@ -325,7 +312,6 @@
                 offsetY = (img.height - drawHeight) / 2;
               }
 
-              // Masque aux coins arrondis
               ctx.beginPath();
               const r = cornerRadius;
               ctx.moveTo(r, 0);
@@ -446,8 +432,6 @@
         return tex;
       }
 
-      // ─── Textures de la lune : carte couleur + carte de relief (bump) ───
-      // pour un vrai rendu de cratères avec ombres, au lieu d'une boule plate.
       function createMoonTextures() {
         const size = 1024;
         const colorCanvas = document.createElement("canvas");
@@ -457,13 +441,11 @@
         bumpCanvas.width = bumpCanvas.height = size;
         const bctx = bumpCanvas.getContext("2d");
 
-        // Base : gris lunaire chaud et plus contrasté qu'un simple blanc cassé
         cctx.fillStyle = "#cdc6ba";
         cctx.fillRect(0, 0, size, size);
         bctx.fillStyle = "#808080";
         bctx.fillRect(0, 0, size, size);
 
-        // Grandes "mers" lunaires (zones sombres, comme les vraies maria)
         for (let i = 0; i < 8; i++) {
           const x = Math.random() * size,
             y = Math.random() * size,
@@ -477,8 +459,6 @@
           cctx.fill();
         }
 
-        // Cratères : ombre interne + rebord clair, repris à l'identique dans la bump map
-        // pour que la lumière les sculpte vraiment en 3D.
         for (let i = 0; i < 260; i++) {
           const x = Math.random() * size,
             y = Math.random() * size,
@@ -512,7 +492,6 @@
           bctx.fill();
         }
 
-        // Grain fin pour casser les aplats et accentuer le réalisme
         for (let i = 0; i < 3500; i++) {
           const v = Math.random() * 44 - 22;
           cctx.fillStyle = `rgba(${128 + v},${122 + v},${114 + v},0.07)`;
@@ -556,7 +535,6 @@
         scene.add(new THREE.PointLight(0xff88aa, 2.5, 22));
         scene.add(new THREE.DirectionalLight(0xaaccff, 2.2));
 
-        // Étoiles — champ dense + couche scintillante pour plus de réalisme
         const STAR_COUNT = 5000;
         const starsGeo = new THREE.BufferGeometry();
         const starsPos = new Float32Array(STAR_COUNT * 3);
@@ -568,7 +546,6 @@
           starsPos[i * 3] = Math.cos(th) * Math.cos(ph) * r;
           starsPos[i * 3 + 1] = Math.sin(ph) * r;
           starsPos[i * 3 + 2] = Math.sin(th) * Math.cos(ph) * r;
-          // Teinte : majoritairement blanc, quelques étoiles bleutées ou ambrées
           const tint = Math.random();
           let cr = 1,
             cg = 1,
@@ -606,7 +583,6 @@
         );
         scene.add(stars);
 
-        // Couche d'étoiles scintillantes (plus brillantes, avec un léger clignotement)
         const TWINKLE_COUNT = 160;
         const twinklePos = new Float32Array(TWINKLE_COUNT * 3);
         const twinklePhase = new Float32Array(TWINKLE_COUNT);
@@ -664,7 +640,6 @@
         twinkleStars = new THREE.Points(twinkleGeo, twinkleMat);
         scene.add(twinkleStars);
 
-        // Lune — texture couleur + relief (bump) pour de vrais cratères ombrés
         const { moonColorTex, moonBumpTex } = createMoonTextures();
         moonMat = new THREE.MeshStandardMaterial({
           map: moonColorTex,
@@ -871,12 +846,6 @@
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
-        // ─── Détection de "tap" maison ───
-        // On n'utilise plus l'événement natif 'click', peu fiable sur Android quand
-        // combiné à des Pointer Events / setPointerCapture (souvent avalé ou jamais
-        // déclenché selon le navigateur). On mesure nous-mêmes la distance et la
-        // durée entre pointerdown et pointerup : si c'est court et quasi immobile,
-        // c'est un tap, sinon c'est un glissé de rotation.
         function handleTap(clientX, clientY) {
           if (typingStarted && !typingFinished) return;
           mouse.x = (clientX / window.innerWidth) * 2 - 1;
@@ -926,16 +895,14 @@
               });
               if (!typingStarted) {
                 typingStarted = true;
-                // Démarrer le fondu du titre
                 const title = document.getElementById("titleOverlay");
-                title.style.animation = "none"; // annule fadeIn
-                title.style.transition = "none"; // reset
-                title.style.opacity = "1"; // repart de l’opacité actuelle
-                title.offsetHeight; // force le navigateur à prendre en compte l’état
-                title.style.transition = "opacity 6s ease"; // lance la transition de 6 secondes
-                title.style.opacity = "0"; // vers transparence
+                title.style.animation = "none";
+                title.style.transition = "none";
+                title.style.opacity = "1";
+                title.offsetHeight;
+                title.style.transition = "opacity 6s ease";
+                title.style.opacity = "0";
 
-                // Masquer le titre automatiquement quand le fondu sera terminé
                 title.addEventListener(
                   "transitionend",
                   () => {
@@ -944,7 +911,6 @@
                   { once: true },
                 );
 
-                // ✅ Afficher la boîte de texte
                 document.getElementById("typewriter").classList.add("visible");
 
                 let idx = 0;
@@ -958,37 +924,33 @@
                     document.getElementById("cursor").style.display = "none";
                     typingFinished = true;
                     setTimeout(() => {
-                      // Cacher la boîte de texte
                       document
                         .getElementById("typewriter")
                         .classList.remove("visible");
 
-                      // S'assurer que le titre est bien masqué (il l'est déjà via l'opacité)
                       const title = document.getElementById("titleOverlay");
                       title.style.opacity = "0";
                       title.style.display = "none";
 
-                      // Afficher les cadres photo
                       frameGroup.visible = true;
                       frames.forEach((f) => {
                         f.scale.set(1, 1, 1);
                       });
 
-                      // --- Faire fondre le cœur 2 secondes plus tard ---
                       setTimeout(() => {
                         if (bigHeart.visible) {
                           let heartOpacity = 1;
                           const heartFadeOut = setInterval(() => {
-                            heartOpacity -= 0.05; // réduction progressive
+                            heartOpacity -= 0.05;
                             if (heartOpacity <= 0) {
                               heartOpacity = 0;
                               clearInterval(heartFadeOut);
                               bigHeart.visible = false;
                             }
                             bigHeart.material.opacity = heartOpacity;
-                          }, 50); // toutes les 50 ms
+                          }, 50);
                         }
-                      }, 2000); // délai de 2 secondes après l'apparition des cadres
+                      }, 2000);
                     }, 6000);
                   }
                 }, 35);
@@ -1012,8 +974,8 @@
 
         let pointerDownPos = null;
         let pointerDownTime = 0;
-        const TAP_MAX_DIST = 12; // px — au-delà, on considère que c'est un glissé, pas un tap
-        const TAP_MAX_TIME = 600; // ms
+        const TAP_MAX_DIST = 12;
+        const TAP_MAX_TIME = 600;
 
         canvasEl.addEventListener("pointerdown", (e) => {
           pointer.active = true;
@@ -1136,8 +1098,7 @@
             f.position.y =
               f.userData.baseY +
               Math.sin(t * 1.2 + f.userData.bobOffset) * 0.18;
-            f.rotation.z += Math.sin(t + i) * 0.0004; // ← point‑virgule obligatoire
-            // suppression complète du bloc if (f.userData.pop)
+            f.rotation.z += Math.sin(t + i) * 0.0004;
           });
         }
         stars.rotation.y += 0.0003;
