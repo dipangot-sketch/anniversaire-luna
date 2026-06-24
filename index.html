@@ -26,6 +26,11 @@
     </style>
   </head>
   <body>
+    <!-- Audio de fond (muet au début, démuté au premier clic ou au tap) -->
+    <audio id="bgMusic" loop autoplay muted playsinline>
+      <source src="musique.mp3" type="audio/mpeg" />
+    </audio>
+
     <div id="intro-video">
       <video id="introVid" autoplay muted playsinline webkit-playsinline preload="auto">
         <source src="intro.mp4" type="video/mp4" />
@@ -80,51 +85,40 @@
         `Avec toute ma tendresse,\n` +
         `                                  my Moon 🌙`;
 
-      // ---------- GESTION AUDIO (automatique avec la vidéo) ----------
-      let audioCtx;
-      let source;
-      let gainNode;
+      // ---------- GESTION AUDIO (automatique après premier clic) ----------
+      const bgMusic = document.getElementById("bgMusic");
+      let audioStarted = false;
 
-      async function initAudio() {
-        try {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          gainNode = audioCtx.createGain();
-          gainNode.gain.value = 0.5;
-
-          const response = await fetch('musique.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-          source = audioCtx.createBufferSource();
-          source.buffer = audioBuffer;
-          source.loop = true;
-          source.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-
-          if (audioCtx.state === 'suspended') {
-            introVid.addEventListener('play', () => {
-              audioCtx.resume().then(() => {
-                source.start(0);
-              });
-            }, { once: true });
-          } else {
-            source.start(0);
-          }
-        } catch (err) {
-          console.warn("L'audio n'a pas pu être chargé automatiquement.", err);
+      // Fonction pour démarrer l'audio (démuter + jouer)
+      function startAudio() {
+        if (!audioStarted) {
+          bgMusic.muted = false;
+          bgMusic.play().catch(() => {});
+          audioStarted = true;
         }
       }
 
-      initAudio();
+      // Tente de démarrer automatiquement via l'événement play de la vidéo
+      // (certains navigateurs l'acceptent, d'autres non)
+      const introVid = document.getElementById("introVid");
+      introVid.addEventListener("play", () => {
+        startAudio();
+      }, { once: true });
+
+      // Si la vidéo ne démarre pas (bloquée), on attend un clic sur la vidéo ou le canvas
+      // (l'utilisateur va forcément cliquer pour zapper la vidéo ou interagir)
+      document.addEventListener("click", startAudio, { once: true });
 
       // ---------- VIDÉO ----------
-      const introVid = document.getElementById("introVid");
       const introDiv = document.getElementById("intro-video");
       let experienceLaunched = false;
 
       function startExperience() {
         if (experienceLaunched) return;
         experienceLaunched = true;
+        // Démarrer la musique si ce n'est pas déjà fait
+        startAudio();
+        // Fondu de sortie de la vidéo
         introDiv.style.opacity = "0";
         setTimeout(() => { introDiv.style.display = "none"; }, 800);
         initScene();
