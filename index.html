@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="fr">
   <head>
@@ -26,7 +27,7 @@
     </style>
   </head>
   <body>
-    <!-- Audio de fond (muet au début, démuté au premier clic ou au tap) -->
+    <!-- Audio de fond (muet au début, démuté au premier geste) -->
     <audio id="bgMusic" loop autoplay muted playsinline>
       <source src="musique.mp3" type="audio/mpeg" />
     </audio>
@@ -65,7 +66,7 @@
       ];
       const LOVE_LETTER = `J’espère que tu vas bien, ma chère amie, my Moon 🌙.
 Aujourd’hui, est un jour exeptionelle pour une personne exeptionnelle.
-Tu es la plus belle chose que la vie m’ait offerte — et quand je dis belle, je ne parle pas seulement de tes yeux ou de ton sourire "KATAKURI''😊.
+Tu es la plus belle chose que la vie m’ait offerte et quand je dis belle, je ne parle pas seulement de tes yeux ou de ton sourire "KATAKURI''😊.
 Je parle de ton âme.
 De cette façon que tu as de comprendre les gens avant même qu’ils ne parlent, de cette intelligence rare qui brille dans tes mots, dans tes idées, dans ta manière de voir le monde.
 Tu es drôle, dingue parfois rectification actuelement très souvent 😂😂, et tellement attachante que chaque instant avec toi devient un souvenir précieux je nai rien oublier peut etre toi si sa jen ai aucune idee.
@@ -85,29 +86,31 @@ Et souviens-toi que, peu importe où la vie nous mène, une part de mon amitié 
 Et oui je sais je suis pas ou plus maintenant douer avec les mots mais bon je t'ecrit juste cela en ce jour qui est le tien .......
                                   my Moon 🌙`;
 
-      // ---------- GESTION AUDIO (automatique après premier clic) ----------
+      // ---------- GESTION AUDIO (automatique ou après premier geste) ----------
       const bgMusic = document.getElementById("bgMusic");
-      let audioStarted = false;
 
-      // Fonction pour démarrer l'audio (démuter + jouer)
-      function startAudio() {
-        if (!audioStarted) {
+      // Tente de jouer automatiquement (muted par défaut, donc silencieux mais prêt)
+      bgMusic.play().catch(() => {});
+
+      // Démute et relance la musique au premier contact n'importe où sur la page
+      function unmuteMusic() {
+        if (bgMusic.muted) {
           bgMusic.muted = false;
           bgMusic.play().catch(() => {});
-          audioStarted = true;
         }
       }
 
-      // Tente de démarrer automatiquement via l'événement play de la vidéo
-      // (certains navigateurs l'acceptent, d'autres non)
+      // Utiliser pointerdown (plus fiable que click sur mobile)
+      document.addEventListener("pointerdown", unmuteMusic, { once: true });
+
+      // Fallback : tenter de démuter quand la vidéo commence à jouer (si le navigateur l'accepte)
       const introVid = document.getElementById("introVid");
       introVid.addEventListener("play", () => {
-        startAudio();
+        if (bgMusic.muted) {
+          bgMusic.muted = false;
+          bgMusic.play().catch(() => {});
+        }
       }, { once: true });
-
-      // Si la vidéo ne démarre pas (bloquée), on attend un clic sur la vidéo ou le canvas
-      // (l'utilisateur va forcément cliquer pour zapper la vidéo ou interagir)
-      document.addEventListener("click", startAudio, { once: true });
 
       // ---------- VIDÉO ----------
       const introDiv = document.getElementById("intro-video");
@@ -116,8 +119,8 @@ Et oui je sais je suis pas ou plus maintenant douer avec les mots mais bon je t'
       function startExperience() {
         if (experienceLaunched) return;
         experienceLaunched = true;
-        // Démarrer la musique si ce n'est pas déjà fait
-        startAudio();
+        // S'assurer que la musique est démutée
+        unmuteMusic();
         // Fondu de sortie de la vidéo
         introDiv.style.opacity = "0";
         setTimeout(() => { introDiv.style.display = "none"; }, 800);
@@ -130,15 +133,16 @@ Et oui je sais je suis pas ou plus maintenant douer avec les mots mais bon je t'
         });
       }
 
+      // La vidéo se lance normalement, on passe à la suite quand elle se termine
       introVid.play().then(() => {
         introVid.addEventListener("ended", startExperience);
       }).catch(() => {
         setTimeout(startExperience, 500);
       });
+      // Si la vidéo atteint sa fin, on lance l'expérience
       introVid.addEventListener("ended", startExperience);
-      introVid.addEventListener("click", () => {
-        startExperience();
-      });
+
+      // ⚠️ Plus de clic pour couper la vidéo ! On la laisse jouer jusqu'au bout.
 
       // ---------- VARIABLES THREE.JS ----------
       let scene, camera, renderer, world, frameGroup, stars, twinkleStars, twinkleMat, sparkles;
@@ -373,3 +377,4 @@ Et oui je sais je suis pas ou plus maintenant douer avec les mots mais bon je t'
     </script>
   </body>
 </html>
+```
